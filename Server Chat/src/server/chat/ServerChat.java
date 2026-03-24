@@ -7,6 +7,7 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.List;
+import java.security.MessageDigest;
 
 public class ServerChat extends JFrame {
 
@@ -14,12 +15,15 @@ public class ServerChat extends JFrame {
     private JTextField txtInput;
     private JButton btnSend;
     private JLabel lblStatus;
+    private Map<String, String> userAccounts = new HashMap<>();
+    private final String USER_FILE = "users.txt";
 
     // Lưu tất cả client đang kết nối
     private Map<String, PrintWriter> clients =
         Collections.synchronizedMap(new HashMap<>());
 
     public ServerChat() {
+        loadUsers();
         setTitle("Server Chat");
         setSize(500, 500);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -31,6 +35,20 @@ public class ServerChat extends JFrame {
         new Thread(this::startServer).start();
     }
 
+    private String hashMD5(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] hashBytes = md.digest(input.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hashBytes) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return input; // fallback
+        }
+    }
+    
     private void buildUI() {
         setLayout(new BorderLayout());
 
@@ -106,7 +124,7 @@ public class ServerChat extends JFrame {
             txtLog.setCaretPosition(txtLog.getDocument().getLength());
         });
     }
-
+    
     private void startServer() {
         try {
             ServerSocket serverSocket = new ServerSocket(5000);
@@ -126,6 +144,32 @@ public class ServerChat extends JFrame {
             log("❌ Lỗi server: " + e.getMessage());
         }
     }
+    
+    private void saveUser(String username, String hashedPassword) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(USER_FILE, true))) {
+           bw.write(username + "|" + hashedPassword);
+            bw.newLine();
+            log("Đã lưu user: " + username);
+        } catch (IOException e) {
+            log("Lỗi lưu file: " + e.getMessage());
+        }
+    }
+    
+    private void loadUsers() {
+        try (BufferedReader br = new BufferedReader(new FileReader(USER_FILE))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\\|");
+                if (parts.length == 2) {
+                    userAccounts.put(parts[0], parts[1]);
+                }
+            }
+            log("Đã load user từ file");
+        } catch (IOException e) {
+            log("Không tìm thấy file users.txt, sẽ tạo mới");
+        }
+    }
+
     
     private void sendUserList() {
 
@@ -156,17 +200,44 @@ public class ServerChat extends JFrame {
 
                     clients.put(username, out);
 
-                    log("👤 " + username + " đã tham gia!");
+                    sendUserList(); 
 
-                    sendUserList();
+                }
+                else if (msg.startsWith("__LOGIN__")) {
 
-                } else if (msg.startsWith("__MSG__")) {
+                    String data = msg.replace("__LOGIN__", "");
+                    String[] parts = data.split("\\|");
+
+                    if (parts.length < 2) continue;
+
+                    String usernameInput = parts[0];
+                    String passwordInput = parts[1];
+
+                    String realPassword = userAccounts.get(usernameInput);
+
+                    if (realPassword != null && realPassword.equals(hashMD5(passwordInput))) {
+
+                        out.println("__LOGIN_SUCCESS__");
+
+                        username = usernameInput;
+                        clients.put(username, out);
+
+                        log("✅ " + username + " đăng nhập");
+
+                        sendUserList();
+
+                    } else {
+                        out.println("__LOGIN_FAIL__");
+                        socket.close();
+                    }
+                }
+                else if (msg.startsWith("__MSG__")) {
 
                     String data = msg.substring(7);
 
                     String[] parts = data.split("\\|");
                     if(parts.length < 3){
-                        return;
+                        continue;
                     }
 
                     String sender = parts[0];
@@ -183,6 +254,23 @@ public class ServerChat extends JFrame {
                         senderOut.println("Bạn → " + receiver + ": " + message);
                     }
 
+                }else if (msg.startsWith("__REGISTER__")) {
+                    String data = msg.replace("__REGISTER__", "");
+                    String[] parts = data.split("\\|");
+
+                    if (parts.length < 2) continue;
+
+                    String usernameInput = parts[0];
+                    String passwordInput = parts[1];
+
+                    if (userAccounts.containsKey(usernameInput)) {
+                        out.println("__REGISTER_FAIL__");
+                    } else {
+                        userAccounts.put(usernameInput, hashMD5(passwordInput));
+                        saveUser(usernameInput, hashMD5(passwordInput));
+                        out.println("__REGISTER_SUCCESS__");
+                        log("🆕 User mới: " + usernameInput);
+                    }
                 }
 
                 SwingUtilities.invokeLater(() ->

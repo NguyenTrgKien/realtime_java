@@ -1,1 +1,5 @@
 trungkien:kiendz1199
+trungkien|8b9ddefcb873304d2822b6405d1877da
+thai|3ab17842029109ad1e334625dcd49ce9
+trungkiendz|f2f70acc5e22914bcb3a36cc42cdfcc7
+thaidz|ab9880445e1519bf19772643ea352e36
