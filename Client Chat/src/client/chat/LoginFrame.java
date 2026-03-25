@@ -9,9 +9,11 @@ public class LoginFrame extends JFrame {
 
     private JTextField txtUsername;
     private JPasswordField txtPassword;
-    private JTextField txtServerIP;
     private JButton btnConnect;
     private JButton btnRegister;
+    private static final String SERVER_IP = "127.0.0.1";
+    private static final int PORT = 5000;
+    
 
     public LoginFrame() {
         setTitle("Đăng nhập");
@@ -52,14 +54,6 @@ public class LoginFrame extends JFrame {
         gbc.gridx = 1;
         panel.add(txtPassword, gbc);
 
-        // IP
-        gbc.gridy = 3; gbc.gridx = 0;
-        panel.add(new JLabel("IP Server:"), gbc);
-
-        txtServerIP = new JTextField("127.0.0.1");
-        gbc.gridx = 1;
-        panel.add(txtServerIP, gbc);
-
         // Buttons
         btnConnect = new JButton("Đăng nhập");
         btnRegister = new JButton("Đăng ký");
@@ -84,15 +78,14 @@ public class LoginFrame extends JFrame {
     private void login() {
         String username = txtUsername.getText().trim();
         String password = new String(txtPassword.getPassword());
-        String ip = txtServerIP.getText().trim();
-        
-          if (username.isEmpty() || password.isEmpty()) {
+
+        if (username.isEmpty() || password.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ!");
-            return; // ← thiếu cái này
-            }   
+            return;
+        }
 
         try {
-            Socket socket = new Socket(ip, 5000);
+            Socket socket = new Socket(SERVER_IP, PORT);
 
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(
@@ -103,13 +96,6 @@ public class LoginFrame extends JFrame {
 
             String response = in.readLine();
 
-
-            if (response == null) {
-                JOptionPane.showMessageDialog(this, "Server ngắt kết nối!");
-                socket.close();
-                return;
-            }
-
             if ("__LOGIN_SUCCESS__".equals(response)) {
                 dispose();
                 new ChatFrame(username, socket);
@@ -117,6 +103,7 @@ public class LoginFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, "Sai tài khoản!");
                 socket.close();
             }
+
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Không kết nối được server!");
         }
@@ -125,10 +112,9 @@ public class LoginFrame extends JFrame {
     private void register() {
         String username = txtUsername.getText().trim();
         String password = new String(txtPassword.getPassword());
-        String ip = txtServerIP.getText().trim();
 
         try {
-            Socket socket = new Socket(ip, 5000);
+            Socket socket = new Socket(SERVER_IP, PORT);
 
             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader in = new BufferedReader(
