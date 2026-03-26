@@ -76,6 +76,22 @@ public class ChatFrame extends JFrame {
 
         new Thread(() -> connectToServer(socket)).start();
     }
+    
+    private void saveMessageToFile(String sender, String receiver, String msg) {
+        try {
+            FileWriter fw = new FileWriter("chat.txt", true); // true = append
+            BufferedWriter bw = new BufferedWriter(fw);
+
+            // format: sender|receiver|message|time
+            String line = sender + "|" + receiver + "|" + msg + "|" + new Date();
+            bw.write(line);
+            bw.newLine();
+
+            bw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     // ══════════════════════════════════════════
     //  BUILD UI
@@ -353,6 +369,33 @@ public class ChatFrame extends JFrame {
         });
     }
 
+    private void loadMessages(String user1, String user2) {
+        File file = new File("chat.txt");
+        if (!file.exists()) return;
+        try (BufferedReader br = new BufferedReader(new FileReader("chat.txt"))) {
+            String line;
+
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split("\\|", 4);
+                if (parts.length >= 4) {
+                    String sender = parts[0];
+                    String receiver = parts[1];
+                    String msg = parts[2];  
+
+                    boolean match =
+                        (sender.equals(user1) && receiver.equals(user2)) ||
+                        (sender.equals(user2) && receiver.equals(user1));
+
+                    if (match) {
+                        appendBubble(msg, sender.equals(username));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
     private void setItemBg(JPanel item, JPanel info, Color bg) {
         item.setBackground(bg);
         info.setBackground(bg);
@@ -384,9 +427,10 @@ public class ChatFrame extends JFrame {
         ((CardLayout) wrapper.getLayout()).show(wrapper, "chat");
 
         messageArea.removeAll();
+        loadMessages(username, name);
         messageArea.revalidate();
         messageArea.repaint();
-        txtInput.requestFocus();
+        txtInput.requestFocus();  
     }
 
     // ══════════════════════════════════════════
@@ -395,7 +439,9 @@ public class ChatFrame extends JFrame {
     private void sendMessage() {
         String msg = txtInput.getText().trim();
         if (msg.isEmpty() || out == null || selectedUser == null) return;
+
         out.println("__MSG__" + username + "|" + selectedUser + "|" + msg);
+
         txtInput.setText("");
     }
 
@@ -528,7 +574,7 @@ public class ChatFrame extends JFrame {
         try {
             out = new PrintWriter(socket.getOutputStream(), true);
             out.println("__JOIN__" + username);
-
+            
             BufferedReader in = new BufferedReader(
                 new InputStreamReader(socket.getInputStream()));
 
@@ -557,17 +603,23 @@ public class ChatFrame extends JFrame {
                 else if (line.startsWith("__MSG__")) {
                     String content = line.substring(7);
                     String[] parts = content.split("\\|", 3);
+
                     if (parts.length == 3) {
                         String sender   = parts[0];
                         String receiver = parts[1];
                         String message  = parts[2];
+
+                        // 🔥 lưu vào file
+                        saveMessageToFile(sender, receiver, message);
+
                         boolean relevant =
                             (sender.equals(selectedUser) && receiver.equals(username)) ||
-                            (sender.equals(username)     && receiver.equals(selectedUser));
+                            (sender.equals(username) && receiver.equals(selectedUser));
+
                         if (relevant) {
                             appendBubble(message, sender.equals(username));
                         }
-                    }
+                    }   
                 }
 
                 // ── Avatar ───────────────────────────────
