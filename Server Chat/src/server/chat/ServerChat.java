@@ -206,11 +206,42 @@ private synchronized boolean registerUser(String username, String password) {
                     out.println("__AUTH_FAIL__Sai tên đăng nhập hoặc mật khẩu!");
                 }
             }
+            
+            else if (msg.startsWith("__JOIN__")) {
+                username = msg.substring(8); // Lấy tên sau chữ __JOIN__
+                clients.put(username, out);
+                log("⚡ " + username + " đã vào phòng chat.");
+                sendUserList(); // Cập nhật danh sách cho TẤT CẢ mọi người
+            }
+            
             // XỬ LÝ TIN NHẮN (Giữ nguyên logic cũ của bạn nhưng bọc trong if username != null)
             else if (msg.startsWith("__MSG__") && username != null) {
-                // ... logic gửi tin nhắn cũ ...
+                String data = msg.substring(7);
+
+                    String[] parts = data.split("\\|");
+                    if(parts.length < 3){
+                        return;
+                    }
+
+                    String sender = parts[0];
+                    String receiver = parts[1];
+                    String message = parts[2];
+
+                    PrintWriter receiverOut = clients.get(receiver);
+                    PrintWriter senderOut = clients.get(sender);
+                    if (receiverOut != null) {
+                         receiverOut.println(sender + ": " + message);
+
+                    }
+                    if (senderOut != null) {
+                        senderOut.println("Bạn → " + receiver + ": " + message);
+                    }
+
+                }
+
+                SwingUtilities.invokeLater(() ->
+                    lblStatus.setText("🟢 " + clients.size() + " client"));
             }
-        }
         } catch (IOException e) {
             log("⚠️ Một client đã ngắt kết nối.");
         } finally {
