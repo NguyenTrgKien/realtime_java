@@ -216,9 +216,9 @@ public class ServerChat extends JFrame {
                     String[] parts = data.split("\\|");
                     if (parts.length < 2) continue;
 
-                    String uname = parts[0];
+                    String uname = parts[0].trim();
                     String pass  = parts[1];
-
+                    System.out.println(userAccounts.keySet());
                     if (userAccounts.containsKey(uname)) {
                         out.println("__REGISTER_FAIL__");
                     } else {
